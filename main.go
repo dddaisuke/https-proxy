@@ -4,15 +4,41 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/srtkkou/zgok"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 )
 
 type Certificates struct {
 	CertFile string
 	KeyFile  string
+}
+
+func loadX509KeyPair(certFile, keyFile string) (tls.Certificate, error) {
+	certPEMBlock, err := readFromZfs(certFile)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	keyPEMBlock, err := readFromZfs(keyFile)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	return tls.X509KeyPair(certPEMBlock, keyPEMBlock)
+}
+
+func readFromZfs(filePath string) ([]byte, error) {
+	zfs, _ := zgok.RestoreFileSystem(os.Args[0])
+	if zfs != nil {
+		// 本番環境
+		return zfs.ReadFile(filePath)
+	} else {
+		// 開発環境
+		return ioutil.ReadFile(filePath)
+	}
 }
 
 func listenAndServeTLSSNI(srv *http.Server, certs []Certificates) error {
@@ -32,7 +58,7 @@ func listenAndServeTLSSNI(srv *http.Server, certs []Certificates) error {
 
 	config.Certificates = make([]tls.Certificate, len(certs))
 	for i, v := range certs {
-		config.Certificates[i], err = tls.LoadX509KeyPair(v.CertFile, v.KeyFile)
+		config.Certificates[i], err = loadX509KeyPair(v.CertFile, v.KeyFile)
 		if err != nil {
 			return err
 		}
