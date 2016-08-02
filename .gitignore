@@ -22,3 +22,6 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+/ssl/manabo-info/*.pem
+/ssl/board-manabo-info/*.pem
