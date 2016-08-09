@@ -3,8 +3,10 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/dddaisuke/httputil2"
 	"github.com/gorilla/mux"
 	"github.com/srtkkou/zgok"
+	"github.com/yhat/wsutil"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -76,7 +78,7 @@ func listenAndServeTLSSNI(srv *http.Server, certs []Certificates) error {
 }
 
 func proxy3000() *httputil.ReverseProxy {
-	remote3000, err3000 := url.Parse("http://lvh.me:3000")
+	remote3000, err3000 := url.Parse("http://127.0.0.1:3000")
 	if err3000 != nil {
 		panic(err3000)
 	}
@@ -84,13 +86,22 @@ func proxy3000() *httputil.ReverseProxy {
 	return httputil.NewSingleHostReverseProxy(remote3000)
 }
 
-func proxy3001() *httputil.ReverseProxy {
-	remote3001, err3001 := url.Parse("http://lvh.me:3001")
+func proxy3001() *httputil2.ReverseProxy {
+	remote3001, err3001 := url.Parse("http://127.0.0.1:3001")
 	if err3001 != nil {
 		panic(err3001)
 	}
 
-	return httputil.NewSingleHostReverseProxy(remote3001)
+	return httputil2.NewSingleHostReverseProxy(remote3001)
+}
+
+func proxy8080() *httputil.ReverseProxy {
+	remote8080, err8080 := url.Parse("http://127.0.0.1:8080")
+	if err8080 != nil {
+		panic(err8080)
+	}
+
+	return httputil.NewSingleHostReverseProxy(remote8080)
 }
 
 func certManaboInfo() Certificates {
@@ -115,6 +126,11 @@ func main() {
 
 	route := mux.NewRouter()
 	route.Host("manabo.info").PathPrefix("/").Handler(proxy3000())
+
+	backendURL := &url.URL{Scheme: "ws://", Host: "127.0.0.1:8080"}
+	p := wsutil.NewSingleHostReverseProxy(backendURL)
+	route.Host("board.manabo.info").PathPrefix("/socket.io/1/websocket/").Handler(p)
+	route.Host("board.manabo.info").PathPrefix("/socket.io/").Handler(proxy8080())
 	route.Host("board.manabo.info").PathPrefix("/").Handler(proxy3001())
 
 	httpsServer := &http.Server{
